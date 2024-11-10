@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mongo
+    environment:
+      - DATABASE_URL=mongodb://root:root@mongo:27017/desafio?authSource=admin
+      - PORT=8080
+      - JWT_SECRET=i0p64HiyQgW4XMqdb281fC5AGtocooV3viA/ET/76OA
+      - REDIS_PASSWORD=123
+      - REDIS_ADDR=redis:6379
+    networks:
+      - app-network
+
+  mongo:
+    image: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+      MONGO_INITDB_DATABASE: desafio 
+      MONGODB_ENABLE_MAJORITY_READ_CONCERN: "false"
+      MONGODB_CACHE_SIZE_GB: "2"
+      MONGODB_WiredTigerCacheSizeGB: "2"
+    command: ["mongod", "--wiredTigerCacheSizeGB", "2", "--setParameter", "maxTransactionLockRequestTimeoutMillis=5000"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./docker/mongodb:/data/db
+      - ./docker/mongodb/init:/docker-entrypoint-initdb.d
+    networks:
+      - app-network
+  redis:
+    image: redis/redis-stack-server
+    container_name: redis_cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
+    driver_opts:
+        type: none
+        device: ./docker/mongodb
+        o: bind
+  redis_data:
+
